@@ -42,12 +42,19 @@ function navigate(path) {
 
 function getCurrentWeek() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 1);
-  const dayOffset = Math.floor((now - start) / 86400000);
+  const target = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+
   return {
-    year: now.getFullYear(),
-    weekNumber: Math.ceil((dayOffset + start.getDay() + 1) / 7)
+    year: target.getUTCFullYear(),
+    weekNumber: Math.ceil(((target - yearStart) / 86400000 + 1) / 7)
   };
+}
+
+function getDefaultTitle(weekNumber) {
+  return `Week${weekNumber}`;
 }
 
 function formatTime(value) {
@@ -220,7 +227,7 @@ function AdminListPage() {
   const [form, setForm] = useState({
     year: currentWeek.year,
     weekNumber: currentWeek.weekNumber,
-    title: `Week${currentWeek.weekNumber}`
+    title: getDefaultTitle(currentWeek.weekNumber)
   });
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -261,6 +268,20 @@ function AdminListPage() {
     }
   };
 
+  const publishPlan = async (id) => {
+    setStatus("publishing");
+    setMessage("");
+    try {
+      await api(`/api/week-plans/${id}/publish`, { method: "POST" });
+      await loadPlans();
+      setMessage("已发布到展示端");
+      setStatus("idle");
+    } catch (error) {
+      setMessage(error.message);
+      setStatus("error");
+    }
+  };
+
   return (
     <AdminLayout>
       <section className="admin-heading">
@@ -288,7 +309,7 @@ function AdminListPage() {
               setForm({
                 ...form,
                 weekNumber: event.target.value,
-                title: `Week${event.target.value}`
+                title: getDefaultTitle(event.target.value)
               })
             }
           />
@@ -306,7 +327,12 @@ function AdminListPage() {
         </button>
       </form>
 
-      {message ? <div className="notice error">{message}</div> : null}
+      {message ? (
+        <div className={status === "error" ? "notice error" : "notice success"}>
+          {status === "error" ? <WifiOff size={18} /> : <Check size={18} />}
+          {message}
+        </div>
+      ) : null}
 
       <section className="plan-list">
         {status === "loading" ? (
@@ -321,13 +347,29 @@ function AdminListPage() {
               <strong>{plan.title}</strong>
               <span>
                 {plan.year}-W{String(plan.weekNumber).padStart(2, "0")} ·{" "}
-                {plan.status === "published" ? "已发布" : "草稿"} · v{plan.version}
+                {plan.isCurrentPublished
+                  ? "当前展示"
+                  : plan.status === "published"
+                    ? "已发布"
+                    : "草稿"}{" "}
+                · v{plan.version}
               </span>
             </div>
-            <button type="button" onClick={() => navigate(`/admin/week-plans/${plan.id}`)}>
-              <Eye size={18} />
-              编辑
-            </button>
+            <div className="row-actions">
+              <button type="button" onClick={() => navigate(`/admin/week-plans/${plan.id}`)}>
+                <Eye size={18} />
+                编辑
+              </button>
+              <button
+                className="primary"
+                type="button"
+                onClick={() => publishPlan(plan.id)}
+                disabled={status === "publishing"}
+              >
+                {status === "publishing" ? <Loader2 size={18} /> : <Send size={18} />}
+                发布
+              </button>
+            </div>
           </article>
         ))}
       </section>
@@ -373,21 +415,6 @@ function EditorPage({ id }) {
     }
   };
 
-  const publishPlan = async () => {
-    await savePlan();
-    setStatus("publishing");
-    setMessage("");
-    try {
-      const data = await api(`/api/week-plans/${id}/publish`, { method: "POST" });
-      setPlan(data.plan);
-      setStatus("idle");
-      setMessage("已发布到展示端");
-    } catch (error) {
-      setStatus("error");
-      setMessage(error.message);
-    }
-  };
-
   return (
     <AdminLayout>
       {plan ? (
@@ -401,10 +428,6 @@ function EditorPage({ id }) {
               <button type="button" onClick={savePlan} disabled={status === "saving"}>
                 {status === "saving" ? <Loader2 size={18} /> : <Save size={18} />}
                 保存
-              </button>
-              <button className="primary" type="button" onClick={publishPlan}>
-                <Send size={18} />
-                发布
               </button>
             </div>
           </section>

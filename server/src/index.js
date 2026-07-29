@@ -48,10 +48,11 @@ app.post("/api/week-plans", (req, res) => {
     const plan = createWeekPlan({ year, weekNumber, title });
     res.status(201).json({ plan });
   } catch (error) {
+    console.error("Failed to create week plan", error);
     if (String(error.message).includes("UNIQUE")) {
-      return res.status(409).json({ error: "This week plan already exists" });
+      return res.status(409).json({ error: "这一周计划已经存在，请直接编辑已有计划或换一个周数。" });
     }
-    res.status(500).json({ error: "Failed to create week plan" });
+    res.status(500).json({ error: "新建周计划失败，请查看 server 日志。" });
   }
 });
 
@@ -66,8 +67,12 @@ app.put("/api/week-plans/:id", (req, res) => {
     const plan = updateWeekPlan(Number(req.params.id), req.body);
     if (!plan) return res.status(404).json({ error: "Week plan not found" });
     res.json({ plan });
-  } catch (_error) {
-    res.status(400).json({ error: "Failed to update week plan" });
+  } catch (error) {
+    console.error("Failed to update week plan", error);
+    if (String(error.message).includes("UNIQUE")) {
+      return res.status(409).json({ error: "这一年和周数已经被其他计划使用。" });
+    }
+    res.status(400).json({ error: "保存周计划失败，请检查年份、周数和餐食内容。" });
   }
 });
 

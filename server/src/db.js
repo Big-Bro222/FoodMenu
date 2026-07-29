@@ -148,13 +148,20 @@ function seedInitialPlan() {
 }
 
 export function listWeekPlans() {
+  const currentPublishedWeekPlanId = getSetting("currentPublishedWeekPlanId");
   return db
     .prepare(
       `select * from week_plans
        order by year desc, week_number desc, updated_at desc`
     )
     .all()
-    .map(normalizePlan);
+    .map((row) => {
+      const plan = normalizePlan(row);
+      return {
+        ...plan,
+        isCurrentPublished: String(plan.id) === String(currentPublishedWeekPlanId)
+      };
+    });
 }
 
 export function getWeekPlan(id) {

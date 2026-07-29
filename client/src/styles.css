@@ -169,7 +169,8 @@ textarea {
 }
 
 .admin-nav,
-.editor-actions {
+.editor-actions,
+.row-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
