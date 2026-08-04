@@ -150,6 +150,8 @@ Rules live in `FOOD_EMOJI_RULES` in `client/src/main.jsx`.
 
 Current important mappings:
 
+As of 2026-08-04, the mapping was expanded to broadly cover Unicode Food & Drink emojis and nearby food-useful symbols. The full source of truth is `FOOD_EMOJI_RULES` in `client/src/main.jsx`; do not rely on the short list below as exhaustive.
+
 - 鸡腿/凤爪/鸡 -> 🍗
 - 牛肉/牛肋条 -> 🥩
 - 卤肉/肉酱/肉 -> 🥓
