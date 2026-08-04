@@ -273,6 +273,36 @@ textarea {
   font-weight: 700;
 }
 
+.device-status {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 8px;
+}
+
+.device-status.battery-ok {
+  background: rgba(35, 166, 117, 0.15);
+  color: #8ff0c5;
+}
+
+.device-status.battery-low {
+  background: rgba(247, 201, 72, 0.16);
+  color: #ffd875;
+}
+
+.device-status.battery-unknown {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(245, 241, 223, 0.64);
+}
+
 .display-status.online {
   border-color: #0b695b;
 }

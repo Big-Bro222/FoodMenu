@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   AlertTriangle,
+  Battery,
+  BatteryCharging,
   Check,
   Eye,
   FilePlus2,
@@ -27,6 +29,7 @@ const SLOTS = [
 const CACHE_KEY = "food-menu:lastPublishedPlan";
 const FULLSCREEN_INTENT_KEY = "food-menu:displayFullscreenIntent";
 const REFRESH_INTERVAL_SECONDS = 45;
+const DEVICE_STATUS_EVENT = "foodmenu-pad-device-status";
 const FOOD_EMOJI_RULES = [
   { emoji: "🍇", keywords: ["葡萄", "提子"] },
   { emoji: "🍈", keywords: ["哈密瓜", "甜瓜", "蜜瓜"] },
@@ -322,6 +325,105 @@ function formatDisplayDate(value = new Date()) {
     day: "numeric",
     weekday: "long"
   }).format(value);
+}
+
+function parseDeviceStatusPayload(payload) {
+  if (!payload) return null;
+
+  try {
+    const value = typeof payload === "string" ? JSON.parse(payload) : payload;
+    const level = Number(value.batteryLevel);
+
+    return {
+      batteryLevel: Number.isFinite(level) ? Math.min(1, Math.max(0, level)) : null,
+      isCharging: typeof value.isCharging === "boolean" ? value.isCharging : null,
+      source: value.source || "unknown"
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
+function getNativeDeviceStatus() {
+  if (!window.FoodMenuPad?.getDeviceStatus) return null;
+  return parseDeviceStatusPayload(window.FoodMenuPad.getDeviceStatus());
+}
+
+function getDeviceStatusClass(deviceStatus) {
+  if (deviceStatus.batteryLevel === null) return "battery-unknown";
+  if (deviceStatus.batteryLevel <= 0.2 && !deviceStatus.isCharging) return "battery-low";
+  return "battery-ok";
+}
+
+function getDeviceStatusLabel(deviceStatus) {
+  return deviceStatus.batteryLevel === null
+    ? "电量 --"
+    : `电量 ${Math.round(deviceStatus.batteryLevel * 100)}%`;
+}
+
+function useDeviceStatus() {
+  const [deviceStatus, setDeviceStatus] = useState(() => ({
+    batteryLevel: null,
+    isCharging: null,
+    source: "unknown"
+  }));
+
+  useEffect(() => {
+    const applyStatus = (nextStatus) => {
+      if (nextStatus) setDeviceStatus(nextStatus);
+    };
+
+    applyStatus(getNativeDeviceStatus());
+
+    const handleNativeStatus = (event) => {
+      applyStatus(parseDeviceStatusPayload(event.detail));
+    };
+    window.addEventListener(DEVICE_STATUS_EVENT, handleNativeStatus);
+
+    let battery;
+    let isDisposed = false;
+    const syncBrowserBattery = () => {
+      if (!battery || window.FoodMenuPad?.getDeviceStatus) return;
+      applyStatus({
+        batteryLevel: battery.level,
+        isCharging: battery.charging,
+        source: "browser"
+      });
+    };
+
+    navigator.getBattery?.().then((nextBattery) => {
+      if (isDisposed) return;
+      battery = nextBattery;
+      syncBrowserBattery();
+      battery.addEventListener("levelchange", syncBrowserBattery);
+      battery.addEventListener("chargingchange", syncBrowserBattery);
+    }).catch(() => {});
+
+    const interval = window.setInterval(() => {
+      applyStatus(getNativeDeviceStatus());
+    }, 30000);
+
+    return () => {
+      isDisposed = true;
+      window.removeEventListener(DEVICE_STATUS_EVENT, handleNativeStatus);
+      window.clearInterval(interval);
+      battery?.removeEventListener("levelchange", syncBrowserBattery);
+      battery?.removeEventListener("chargingchange", syncBrowserBattery);
+    };
+  }, []);
+
+  return deviceStatus;
+}
+
+function DeviceStatusBadge({ deviceStatus }) {
+  const Icon = deviceStatus.isCharging ? BatteryCharging : Battery;
+
+  return (
+    <span className={`device-status ${getDeviceStatusClass(deviceStatus)}`}>
+      <Icon size={16} />
+      {getDeviceStatusLabel(deviceStatus)}
+    </span>
+  );
 }
 
 function entriesByCell(entries = []) {
@@ -702,6 +804,7 @@ function DisplayPage() {
   const [isOnline, setIsOnline] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(plan?.publishedAt || null);
   const [currentDate, setCurrentDate] = useState(() => new Date());
+  const deviceStatus = useDeviceStatus();
   const displayWeek = useMemo(() => getDisplayWeek(currentDate), [currentDate]);
   const weekLabel = plan
     ? `${plan.year}-W${String(plan.weekNumber).padStart(2, "0")}`
@@ -837,13 +940,13 @@ function DisplayPage() {
             >
               <RefreshCw size={16} />
             </button>
+            <DeviceStatusBadge deviceStatus={deviceStatus} />
             <small>{formatTime(lastUpdated)}</small>
           </div>
           <div className="display-note">
             <span>当前展示</span>
             <strong>{plan?.title || "暂无计划"}</strong>
           </div>
-          <FullscreenButton autoResumeOnPad />
           {isLocallyAdjusted ? (
             <div className="display-sync adjusted">
               <span>和管理端不同</span>
@@ -909,9 +1012,9 @@ function DisplayPage() {
               >
                 <RefreshCw size={16} />
               </button>
+              <DeviceStatusBadge deviceStatus={deviceStatus} />
               <small>{formatTime(lastUpdated)}</small>
             </div>
-            <FullscreenButton compact autoResumeOnPad />
             {isLocallyAdjusted ? (
               <div className="display-info-actions">
                 <span>和管理端不同</span>

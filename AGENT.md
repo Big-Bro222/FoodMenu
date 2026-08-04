@@ -11,8 +11,8 @@ FoodMenu is a local family weekly meal planner.
 - Storage: SQLite through `better-sqlite3`.
 - Workspace: `D:\Projects\FoodMenu`.
 - Main branch in use: `codex/phase-1-react-sqlite`.
-- Latest important local commit: `d6d9ff2 Restore display and weekly planning features`.
-- As of that commit, the branch is ahead of `origin/codex/phase-1-react-sqlite` by 1 commit.
+- Latest important local commit title: `Add Android Pad shell`. Use `git log --oneline -1` for the exact hash.
+- As of that commit, the branch is ahead of `origin/codex/phase-1-react-sqlite` by 2 commits.
 
 The app has two main surfaces:
 
@@ -60,16 +60,17 @@ The user often uses an iPad/pad as the display device. Recorded viewport:
 - `DPR 2.25`
 - portrait orientation
 
-For a pad on the same LAN, use the computer LAN IP instead of localhost, for example:
+For a pad on the same LAN, use the computer LAN IP instead of localhost. The user's current dev URL is:
 
 ```text
-http://192.168.110.167:5173/display
+http://192.168.81.1:5173/display
 ```
 
 ## Important Files
 
 - `client/src/main.jsx`: all React app logic.
 - `client/src/styles.css`: all UI styling.
+- `android-shell/`: thin Android WebView shell for Xiaomi Pad 5 / HyperOS.
 - `server/src/db.js`: database schema, plan logic, display-week logic.
 - `server/src/index.js`: Express API routes.
 - `server/test/db.test.js`: backend tests.
@@ -131,16 +132,41 @@ Display features:
   - `保存到管理端`: upload display changes to admin, then publish
   - `放弃调整`: discard local display changes and restore server data
 - Display has an online/offline card.
+- Online/offline card also shows battery percentage:
+  - WebView shell provides battery level and charging state through `window.FoodMenuPad.getDeviceStatus()`.
+  - Browser fallback uses `navigator.getBattery()` when available.
+  - Do not show power-save mode status; HyperOS did not expose it reliably on the user's Xiaomi Pad 5.
 - Refresh interval is `REFRESH_INTERVAL_SECONDS = 45`.
 - Online card has an icon-only refresh button.
 - Refresh button is disabled while offline.
 - Local date/today highlight updates every minute, even when server is offline.
-- Fullscreen button exists only on display surfaces, not admin.
-- On portrait pad, fullscreen intent is remembered:
-  - if user clicks full screen, store intent in localStorage
-  - if fullscreen exits unexpectedly, try to re-enter fullscreen
-  - if user clicks exit fullscreen, stop auto-resume until they click fullscreen again
-  - iPadOS/Safari may block non-user-gesture fullscreen; code should best-effort only
+- The old in-page fullscreen button was removed from display surfaces.
+- The Android shell still uses immersive/fullscreen window flags.
+
+### Android Pad Shell
+
+An Android shell app lives in `android-shell/`.
+
+Current shell behavior:
+
+- Package/application id: `com.foodmenu.pad`.
+- Version as of this handoff: `0.4.0` / `versionCode 4`.
+- Default display URL: `http://192.168.81.1:5173/display`.
+- Intended device: Xiaomi Pad 5 on HyperOS.
+- Orientation: portrait.
+- Uses WebView to open the FoodMenu display page.
+- Keeps screen on and uses immersive fullscreen system UI flags.
+- Long-press in the shell opens the display URL editor.
+- Boot receiver tries to open the shell at boot and also posts a notification fallback.
+- Shell bridges battery percentage and charging state to the webpage.
+- Power-save mode detection/reminders were removed because HyperOS did not expose the state reliably to normal apps.
+
+Build/install notes:
+
+- The user prefers to build APKs manually in Android Studio.
+- Open `D:\Projects\FoodMenu\android-shell` in Android Studio and use `Build APK(s)`.
+- APK output is typically `android-shell/app/build/outputs/apk/debug/app-debug.apk`.
+- `android-shell/local.properties`, `.idea`, `.gradle`, and `app/build` are intentionally ignored.
 
 ### Emoji Background Stickers
 

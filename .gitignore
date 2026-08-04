@@ -7,3 +7,9 @@ data/*.sqlite-shm
 data/*.sqlite-wal
 *.log
 .logs/
+android-shell/.gradle/
+android-shell/local.properties
+android-shell/app/build/
+android-shell/build/
+android-shell/.idea/
+*.apk

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_display_url">http://192.168.81.1:5173/display</string>
+</resources>
