@@ -10,7 +10,7 @@ const dataDir = path.join(rootDir, "data");
 const dbPath = process.env.DATABASE_URL || path.join(dataDir, "foodmenu.sqlite");
 
 const days = [0, 1, 2, 3, 4, 5, 6];
-const slots = ["morning", "dinner"];
+const slots = ["morning", "lunch", "dinner"];
 
 fs.mkdirSync(dataDir, { recursive: true });
 
@@ -19,6 +19,50 @@ db.pragma("foreign_keys = ON");
 
 function now() {
   return new Date().toISOString();
+}
+
+function getIsoWeek(value = new Date()) {
+  const current = value;
+  const target = new Date(
+    Date.UTC(current.getFullYear(), current.getMonth(), current.getDate())
+  );
+  const dayNumber = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - dayNumber);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+
+  return {
+    year: target.getUTCFullYear(),
+    weekNumber: Math.ceil(((target - yearStart) / 86400000 + 1) / 7)
+  };
+}
+
+export function getDisplayWeek(value = new Date()) {
+  const target = new Date(value);
+  if (target.getDay() === 0) {
+    target.setDate(target.getDate() + 1);
+  }
+  return getIsoWeek(target);
+}
+
+function getPreviousWeek({ year, weekNumber }) {
+  const monday = new Date(Date.UTC(year, 0, 4 + (weekNumber - 1) * 7));
+  const mondayDayNumber = monday.getUTCDay() || 7;
+  monday.setUTCDate(monday.getUTCDate() + 1 - mondayDayNumber);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() - 1);
+  return getIsoWeek(sunday);
+}
+
+function getCurrentWeek() {
+  return getIsoWeek();
+}
+
+function isPastWeekPlan(plan) {
+  const currentWeek = getCurrentWeek();
+  return (
+    plan.year < currentWeek.year ||
+    (plan.year === currentWeek.year && plan.weekNumber < currentWeek.weekNumber)
+  );
 }
 
 function getSetting(key) {
@@ -31,6 +75,10 @@ function setSetting(key, value) {
      values (?, ?)
      on conflict(key) do update set value = excluded.value`
   ).run(key, String(value));
+}
+
+function deleteSetting(key) {
+  db.prepare("delete from app_settings where key = ?").run(key);
 }
 
 function createEntries(weekPlanId, entries = []) {
@@ -107,6 +155,7 @@ export function initializeDatabase() {
   `);
 
   seedInitialPlan();
+  backfillMissingMealEntries();
 }
 
 function seedInitialPlan() {
@@ -114,20 +163,27 @@ function seedInitialPlan() {
   if (count > 0) return;
 
   const seedEntries = [
-    { dayOfWeek: 0, slot: "morning", text: "豆浆、鸡蛋、包子" },
-    { dayOfWeek: 0, slot: "dinner", text: "番茄牛腩、青菜、米饭" },
-    { dayOfWeek: 1, slot: "morning", text: "燕麦粥、水果" },
-    { dayOfWeek: 1, slot: "dinner", text: "红烧鸡腿、炒西兰花" },
-    { dayOfWeek: 2, slot: "morning", text: "三明治、牛奶" },
-    { dayOfWeek: 2, slot: "dinner", text: "清蒸鱼、土豆丝" },
-    { dayOfWeek: 3, slot: "morning", text: "小米粥、煎蛋" },
-    { dayOfWeek: 3, slot: "dinner", text: "咖喱牛肉、米饭" },
-    { dayOfWeek: 4, slot: "morning", text: "馄饨" },
-    { dayOfWeek: 4, slot: "dinner", text: "排骨汤、炒白菜" },
-    { dayOfWeek: 5, slot: "morning", text: "面包、酸奶" },
-    { dayOfWeek: 5, slot: "dinner", text: "饺子、凉拌黄瓜" },
-    { dayOfWeek: 6, slot: "morning", text: "葱油饼、豆腐脑" },
-    { dayOfWeek: 6, slot: "dinner", text: "火锅" }
+    { dayOfWeek: 0, slot: "morning", text: "" },
+    { dayOfWeek: 0, slot: "lunch", text: "" },
+    { dayOfWeek: 0, slot: "dinner", text: "炒酸菜，豉汁凤爪，鸡腿蘑菇汤" },
+    { dayOfWeek: 1, slot: "morning", text: "面包香肠生菜" },
+    { dayOfWeek: 1, slot: "lunch", text: "" },
+    { dayOfWeek: 1, slot: "dinner", text: "清水牛肋条，清蒸娃娃菜" },
+    { dayOfWeek: 2, slot: "morning", text: "面包香肠生菜" },
+    { dayOfWeek: 2, slot: "lunch", text: "" },
+    { dayOfWeek: 2, slot: "dinner", text: "孜然牛肉粒，白菜豆腐" },
+    { dayOfWeek: 3, slot: "morning", text: "汉堡包，切达芝士" },
+    { dayOfWeek: 3, slot: "lunch", text: "" },
+    { dayOfWeek: 3, slot: "dinner", text: "麻辣拌" },
+    { dayOfWeek: 4, slot: "morning", text: "汉堡包，切达芝士" },
+    { dayOfWeek: 4, slot: "lunch", text: "" },
+    { dayOfWeek: 4, slot: "dinner", text: "卤肉饭，冷冻西兰花" },
+    { dayOfWeek: 5, slot: "morning", text: "馄饨" },
+    { dayOfWeek: 5, slot: "lunch", text: "" },
+    { dayOfWeek: 5, slot: "dinner", text: "意大利肉酱面" },
+    { dayOfWeek: 6, slot: "morning", text: "馄饨" },
+    { dayOfWeek: 6, slot: "lunch", text: "" },
+    { dayOfWeek: 6, slot: "dinner", text: "" }
   ];
 
   const createSeed = db.transaction(() => {
@@ -147,6 +203,27 @@ function seedInitialPlan() {
   createSeed();
 }
 
+function backfillMissingMealEntries() {
+  const plans = db.prepare("select id from week_plans").all();
+  const insert = db.prepare(
+    `insert into meal_entries (week_plan_id, day_of_week, slot, text, notes)
+     values (?, ?, ?, '', '')
+     on conflict(week_plan_id, day_of_week, slot) do nothing`
+  );
+
+  const backfill = db.transaction(() => {
+    for (const plan of plans) {
+      for (const dayOfWeek of days) {
+        for (const slot of slots) {
+          insert.run(plan.id, dayOfWeek, slot);
+        }
+      }
+    }
+  });
+
+  backfill();
+}
+
 export function listWeekPlans() {
   const currentPublishedWeekPlanId = getSetting("currentPublishedWeekPlanId");
   return db
@@ -159,12 +236,14 @@ export function listWeekPlans() {
       const plan = normalizePlan(row);
       return {
         ...plan,
-        isCurrentPublished: String(plan.id) === String(currentPublishedWeekPlanId)
+        isCurrentPublished: String(plan.id) === String(currentPublishedWeekPlanId),
+        isLocked: isPastWeekPlan(plan)
       };
     });
 }
 
 export function getWeekPlan(id) {
+  const currentPublishedWeekPlanId = getSetting("currentPublishedWeekPlanId");
   const plan = normalizePlan(db.prepare("select * from week_plans where id = ?").get(id));
   if (!plan) return null;
 
@@ -177,7 +256,55 @@ export function getWeekPlan(id) {
     .all(id)
     .map(normalizeEntry);
 
-  return { ...plan, entries };
+  return {
+    ...plan,
+    entries,
+    isCurrentPublished: String(plan.id) === String(currentPublishedWeekPlanId),
+    isLocked: isPastWeekPlan(plan)
+  };
+}
+
+function getWeekPlanByWeek(year, weekNumber) {
+  const row = db
+    .prepare("select id from week_plans where year = ? and week_number = ?")
+    .get(year, weekNumber);
+  return row ? getWeekPlan(row.id) : null;
+}
+
+function publishPlanForDisplay(id) {
+  const timestamp = now();
+  db.prepare(
+    `update week_plans
+     set status = 'published',
+         version = version + 1,
+         updated_at = ?,
+         published_at = ?
+     where id = ?`
+  ).run(timestamp, timestamp, id);
+  setSetting("currentPublishedWeekPlanId", id);
+}
+
+function addDisplayMetadata(plan, displayWeek) {
+  if (!plan) return null;
+
+  const previousWeek = getPreviousWeek(displayWeek);
+  const previousPlan = getWeekPlanByWeek(previousWeek.year, previousWeek.weekNumber);
+  const previousSundayEntries =
+    previousPlan?.entries.filter((entry) => entry.dayOfWeek === 0) ?? [];
+  const entries = previousSundayEntries.length
+    ? [...previousSundayEntries, ...plan.entries.filter((entry) => entry.dayOfWeek !== 0)]
+    : plan.entries;
+
+  return {
+    ...plan,
+    entries,
+    displayWeek,
+    previousSundayWeek: previousPlan
+      ? { year: previousPlan.year, weekNumber: previousPlan.weekNumber, title: previousPlan.title }
+      : null,
+    isDisplayWeekMismatch:
+      plan.year !== displayWeek.year || plan.weekNumber !== displayWeek.weekNumber
+  };
 }
 
 export function createWeekPlan({ year, weekNumber, title }) {
@@ -202,6 +329,9 @@ export function updateWeekPlan(id, { year, weekNumber, title, entries }) {
   const updatePlan = db.transaction(() => {
     const current = getWeekPlan(id);
     if (!current) return null;
+    if (current.isLocked) {
+      throw new Error("PAST_WEEK_LOCKED");
+    }
 
     db.prepare(
       `update week_plans
@@ -230,31 +360,61 @@ export function publishWeekPlan(id) {
   const publishPlan = db.transaction(() => {
     const current = getWeekPlan(id);
     if (!current) return null;
+    if (current.isLocked) {
+      throw new Error("PAST_WEEK_LOCKED");
+    }
 
-    const timestamp = now();
-    db.prepare(
-      `update week_plans
-       set status = 'published',
-           version = version + 1,
-           updated_at = ?,
-           published_at = ?
-       where id = ?`
-    ).run(timestamp, timestamp, id);
-
-    setSetting("currentPublishedWeekPlanId", id);
+    publishPlanForDisplay(id);
     return getWeekPlan(id);
   });
 
   return publishPlan();
 }
 
-export function getCurrentPlan() {
-  const id = getSetting("currentPublishedWeekPlanId");
-  if (!id) return null;
+export function deleteWeekPlan(id) {
+  const deletePlan = db.transaction(() => {
+    const current = getWeekPlan(id);
+    if (!current) return null;
+    if (current.isLocked) {
+      throw new Error("PAST_WEEK_LOCKED");
+    }
 
-  const plan = getWeekPlan(id);
-  if (!plan || plan.status !== "published") return null;
-  return plan;
+    const currentPublishedWeekPlanId = getSetting("currentPublishedWeekPlanId");
+    db.prepare("delete from week_plans where id = ?").run(id);
+    if (String(id) === String(currentPublishedWeekPlanId)) {
+      deleteSetting("currentPublishedWeekPlanId");
+    }
+
+    return current;
+  });
+
+  return deletePlan();
+}
+
+export function getCurrentPlan() {
+  const loadCurrentPlan = db.transaction(() => {
+    const displayWeek = getDisplayWeek();
+    const displayPlan = getWeekPlanByWeek(displayWeek.year, displayWeek.weekNumber);
+
+    if (displayPlan) {
+      if (displayPlan.status !== "published") {
+        publishPlanForDisplay(displayPlan.id);
+      } else {
+        setSetting("currentPublishedWeekPlanId", displayPlan.id);
+      }
+
+      return addDisplayMetadata(getWeekPlan(displayPlan.id), displayWeek);
+    }
+
+    const id = getSetting("currentPublishedWeekPlanId");
+    if (!id) return null;
+
+    const plan = getWeekPlan(id);
+    if (!plan || plan.status !== "published") return null;
+    return addDisplayMetadata(plan, displayWeek);
+  });
+
+  return loadCurrentPlan();
 }
 
 export function getCurrentPlanVersion() {
@@ -263,6 +423,8 @@ export function getCurrentPlanVersion() {
   return {
     id: plan.id,
     version: plan.version,
-    publishedAt: plan.publishedAt
+    publishedAt: plan.publishedAt,
+    displayWeek: plan.displayWeek,
+    isDisplayWeekMismatch: plan.isDisplayWeekMismatch
   };
 }

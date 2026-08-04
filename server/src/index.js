@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   createWeekPlan,
+  deleteWeekPlan,
   getCurrentPlan,
   getCurrentPlanVersion,
   getWeekPlan,
@@ -50,7 +51,9 @@ app.post("/api/week-plans", (req, res) => {
   } catch (error) {
     console.error("Failed to create week plan", error);
     if (String(error.message).includes("UNIQUE")) {
-      return res.status(409).json({ error: "这一周计划已经存在，请直接编辑已有计划或换一个周数。" });
+      return res
+        .status(409)
+        .json({ error: "这一周计划已经存在，请直接编辑已有计划或换一个周数。" });
     }
     res.status(500).json({ error: "新建周计划失败，请查看 server 日志。" });
   }
@@ -69,6 +72,9 @@ app.put("/api/week-plans/:id", (req, res) => {
     res.json({ plan });
   } catch (error) {
     console.error("Failed to update week plan", error);
+    if (String(error.message).includes("PAST_WEEK_LOCKED")) {
+      return res.status(403).json({ error: "过去周计划只能查看，不能编辑。" });
+    }
     if (String(error.message).includes("UNIQUE")) {
       return res.status(409).json({ error: "这一年和周数已经被其他计划使用。" });
     }
@@ -77,9 +83,31 @@ app.put("/api/week-plans/:id", (req, res) => {
 });
 
 app.post("/api/week-plans/:id/publish", (req, res) => {
-  const plan = publishWeekPlan(Number(req.params.id));
-  if (!plan) return res.status(404).json({ error: "Week plan not found" });
-  res.json({ plan });
+  try {
+    const plan = publishWeekPlan(Number(req.params.id));
+    if (!plan) return res.status(404).json({ error: "Week plan not found" });
+    res.json({ plan });
+  } catch (error) {
+    console.error("Failed to publish week plan", error);
+    if (String(error.message).includes("PAST_WEEK_LOCKED")) {
+      return res.status(403).json({ error: "过去周计划只能查看，不能发布。" });
+    }
+    res.status(500).json({ error: "发布周计划失败，请查看 server 日志。" });
+  }
+});
+
+app.delete("/api/week-plans/:id", (req, res) => {
+  try {
+    const plan = deleteWeekPlan(Number(req.params.id));
+    if (!plan) return res.status(404).json({ error: "Week plan not found" });
+    res.json({ plan });
+  } catch (error) {
+    console.error("Failed to delete week plan", error);
+    if (String(error.message).includes("PAST_WEEK_LOCKED")) {
+      return res.status(403).json({ error: "过去周计划只能查看，不能删除。" });
+    }
+    res.status(500).json({ error: "删除周计划失败，请查看 server 日志。" });
+  }
 });
 
 app.get("/api/current-plan", (_req, res) => {
