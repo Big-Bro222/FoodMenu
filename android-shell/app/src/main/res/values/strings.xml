@@ -1,10 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">FoodMenu Pad</string>
-    <string name="boot_channel_name">开机提醒</string>
-    <string name="boot_channel_description">Pad 开机后提醒打开菜单展示页</string>
-    <string name="boot_notification_title">打开 FoodMenu 展示页</string>
-    <string name="boot_notification_text">如果系统没有自动打开，请点这里进入展示模式。</string>
     <string name="loading_display">正在打开展示页：\n%1$s\n\n如果一直停在这里，请点“修改地址”。\n开发模式通常是 http://电脑IP:5173/display；生产模式通常是 http://电脑IP:3000/display。</string>
     <string name="load_error">无法打开展示页：\n%1$s\n\n诊断信息：\n%2$s\n\n请确认电脑端 server 正在运行、Pad 和电脑在同一个 Wi-Fi。开发模式用 5173 端口，生产模式用 3000 端口。</string>
     <string name="load_timeout">10 秒内没有收到页面响应：%1$s</string>
@@ -19,7 +15,4 @@
     <string name="url_saved">地址已保存：%1$s</string>
     <string name="url_save_failed">地址保存失败，请重试。</string>
     <string name="url_invalid">地址需要以 http:// 或 https:// 开头</string>
-    <string name="open_autostart_settings">自启动设置</string>
-    <string name="remind_later">稍后提醒</string>
-    <string name="settings_unavailable">无法打开对应设置页，请从系统设置手动进入。</string>
 </resources>

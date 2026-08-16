@@ -1,6 +1,5 @@
 package com.foodmenu.pad;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -8,15 +7,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -63,7 +59,6 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         handler = new Handler(Looper.getMainLooper());
-        requestNotificationPermission();
         configureKioskWindow();
         buildView();
         configureWebView();
@@ -88,14 +83,6 @@ public class MainActivity extends Activity {
     public void onBackPressed() {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
-        }
-    }
-
-    private void requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 10);
         }
     }
 
@@ -378,35 +365,6 @@ public class MainActivity extends Activity {
                         saveDisplayUrl(getString(R.string.default_display_url)))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
-    }
-
-    private void openXiaomiAutostartSettings() {
-        Intent[] intents = new Intent[]{
-                new Intent("miui.intent.action.OP_AUTO_START"),
-                new Intent().setClassName(
-                        "com.miui.securitycenter",
-                        "com.miui.permcenter.autostart.AutoStartManagementActivity"
-                ),
-                new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                        .setData(Uri.parse("package:" + getPackageName()))
-        };
-
-        for (Intent intent : intents) {
-            if (tryStart(intent)) return;
-        }
-
-        Toast.makeText(this, R.string.settings_unavailable, Toast.LENGTH_LONG).show();
-    }
-
-    private boolean tryStart(Intent intent) {
-        try {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            if (intent.resolveActivity(getPackageManager()) == null) return false;
-            startActivity(intent);
-            return true;
-        } catch (RuntimeException ignored) {
-            return false;
-        }
     }
 
     private void hideSystemUi() {

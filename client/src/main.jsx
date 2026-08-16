@@ -351,14 +351,14 @@ function getNativeDeviceStatus() {
 
 function getDeviceStatusClass(deviceStatus) {
   if (deviceStatus.batteryLevel === null) return "battery-unknown";
-  if (deviceStatus.batteryLevel <= 0.2 && !deviceStatus.isCharging) return "battery-low";
   return "battery-ok";
 }
 
 function getDeviceStatusLabel(deviceStatus) {
-  return deviceStatus.batteryLevel === null
-    ? "电量 --"
-    : `电量 ${Math.round(deviceStatus.batteryLevel * 100)}%`;
+  if (deviceStatus.batteryLevel === null) return "电量 --";
+
+  const batteryText = `电量 ${Math.round(deviceStatus.batteryLevel * 100)}%`;
+  return deviceStatus.isCharging ? `${batteryText} 充电中` : batteryText;
 }
 
 function useDeviceStatus() {

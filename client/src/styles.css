@@ -293,11 +293,6 @@ textarea {
   color: #8ff0c5;
 }
 
-.device-status.battery-low {
-  background: rgba(247, 201, 72, 0.16);
-  color: #ffd875;
-}
-
 .device-status.battery-unknown {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(245, 241, 223, 0.64);

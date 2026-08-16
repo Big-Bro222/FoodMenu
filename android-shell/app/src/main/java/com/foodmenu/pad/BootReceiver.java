@@ -24,7 +24,5 @@ public class BootReceiver extends BroadcastReceiver {
         } catch (RuntimeException ignored) {
             // Newer Android and vendor ROMs can block background activity launch at boot.
         }
-
-        BootReminder.show(context);
     }
 }
