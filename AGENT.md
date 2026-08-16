@@ -1,89 +1,305 @@
-# Agent 工作说明
+# FoodMenu Agent Context
 
-## 项目定位
+This file is the handoff context for future Codex chats working in this repository.
 
-这是一个家庭每周餐食计划项目，用来提前规划未来一周吃什么。
+## Project Summary
 
-它不是餐厅菜单系统，不是点餐系统，也不是做饭后的记录工具。核心场景是：家里的电脑运行本地 server，小米 Pad 打开展示页面，在厨房、餐厅或客厅以看板模式显示当前发布的周计划。
+FoodMenu is a local family weekly meal planner.
 
-## 当前目标
+- Frontend: React 19 + Vite.
+- Backend: Express.
+- Storage: SQLite through `better-sqlite3`.
+- Workspace: `D:\Projects\FoodMenu`.
+- Main branch in use: `codex/phase-1-react-sqlite`.
+- Latest important local commit title: `Add Android Pad shell`. Use `git log --oneline -1` for the exact hash.
+- As of that commit, the branch is ahead of `origin/codex/phase-1-react-sqlite` by 2 commits.
 
-第一阶段先做一个可本地运行的 Web App：
+The app has two main surfaces:
 
-- 管理端可以创建、编辑、发布每周餐食计划。
-- 展示端可以在小米 Pad 上清楚显示当前周计划。
-- 平板页面已经打开后，即使 server 暂时断开，也继续显示已有内容。
-- 后续支持 server 发布新计划后，平板自动刷新。
+- Admin: `http://localhost:5173/admin`
+- Display: `http://localhost:5173/display`
 
-详细规划见 `PLANNING.md`。
+The API server runs on:
 
-## 核心概念
+- `http://localhost:3000`
 
-- `WeekPlan`：某一年某一周的餐食计划。
-- `MealEntry`：某一天某个餐次的内容。
-- `draft`：草稿计划，只在管理端编辑。
-- `published`：已发布计划，展示端只读取这个版本。
-- `version`：发布版本号，用于展示端自动检测更新。
+Vite proxies `/api` requests from port `5173` to `http://127.0.0.1:3000`.
 
-## MVP 功能优先级
+## How To Run
 
-优先实现：
+From PowerShell:
 
-1. 静态展示页面，先复刻现有 Week 表格样式。
-2. 本地数据存储，建议使用 SQLite。
-3. 管理端编辑器，可以保存草稿和发布计划。
-4. 展示端读取当前发布计划。
-5. 平板端缓存最后一次成功加载的计划。
-6. 展示端轮询版本号，发现更新后自动刷新数据。
+```powershell
+cd D:\Projects\FoodMenu
+npm run dev
+```
 
-暂缓实现：
+This starts:
 
-- OCR 图片识别。
-- 完整菜谱库。
-- 营养统计。
-- 用户账号。
-- 云端同步。
-- 原生手机 App。
+- API server on `0.0.0.0:3000`
+- Vite frontend on `0.0.0.0:5173`
 
-## 展示端原则
+Important: `server/package.json` must keep:
 
-展示端是常亮看板，不是普通后台页面。
+```json
+"dev": "node src/index.js"
+```
 
-- 字体要大。
-- 对比度要高。
-- 页面要稳定。
-- UI 要少。
-- 不显示管理按钮。
-- 横屏和竖屏都要能读。
-- 不要依赖 server 持续在线才能保持已经显示的内容。
+Do not change it back to `node --watch src/index.js`. The watch mode notices SQLite writes and can restart the server during POST/PUT requests, causing `Request failed: 500`, `ECONNRESET`, or broken create/save actions.
 
-小米 Pad 可能因为省电、睡眠或浏览器内存回收导致页面暂停或刷新，因此后续需要使用本地缓存和 service worker 增强可靠性。
+Useful checks:
 
-## 技术建议
+```powershell
+npm run build
+npm run test
+```
 
-推荐默认技术路线：
+The user often uses an iPad/pad as the display device. Recorded viewport:
 
-- Next.js 用于 Web UI 和 API。
-- SQLite 用于本地数据存储。
-- Prisma 或轻量数据访问层用于数据库操作。
-- `localStorage` 或 `IndexedDB` 用于展示端保存最后计划。
-- 第一版自动刷新使用轮询，例如每 30-60 秒检查一次 `/api/current-plan/version`。
-- 后续再考虑 Server-Sent Events 或 WebSocket。
+- `712 x 1000`
+- `DPR 2.25`
+- portrait orientation
 
-除非有明确理由，不要一开始引入复杂后端、云服务或多用户权限系统。
+For a pad on the same LAN, use the computer LAN IP instead of localhost. The user's current dev URL is:
 
-## Bonus 功能：食材提醒事项
+```text
+http://192.168.81.1:5173/display
+```
 
-后续可以为每周计划手动输入需要准备的食材，并生成买菜/备菜清单。
+## Important Files
 
-如果手机是 iPhone，第一版建议通过 Apple Shortcuts 把清单加入指定的 Apple Reminders 列表，例如 `买菜`。不要在 MVP 阶段尝试从本地 Windows server 直接写入 Apple Reminders。
+- `client/src/main.jsx`: all React app logic.
+- `client/src/styles.css`: all UI styling.
+- `android-shell/`: thin Android WebView shell for Xiaomi Pad 5 / HyperOS.
+- `server/src/db.js`: database schema, plan logic, display-week logic.
+- `server/src/index.js`: Express API routes.
+- `server/test/db.test.js`: backend tests.
+- `server/package.json`: server scripts. Keep dev mode non-watch.
+- `data/foodmenu.sqlite`: local SQLite database.
+- `startup.md`: older manual startup doc. It may contain mojibake/encoding damage; prefer this file for current context.
 
-如果手机是 Android，优先考虑有公开 API 的提醒或待办 App，或者先做分享/导出流程。
+## Current Features To Preserve
 
-## 开发注意事项
+### Meal Slots
 
-- 以 `PLANNING.md` 为产品边界。
-- 命名要体现“计划”，优先使用 `Plan`、`WeekPlan`、`MealEntry`，避免使用容易误导成饭后记录的 `Record`。
-- 不要把产品做成餐厅菜单、外卖、点餐或菜谱收藏系统。
-- 数据和 UI 先服务家庭场景，不要过早泛化。
-- 每次实现前优先确认是否会影响平板展示端的稳定性。
+There are three meal slots:
+
+- `morning`: 上午
+- `lunch`: 午饭
+- `dinner`: 晚饭
+
+Backend `slots` must include all three. Tests expect 21 entries per week plan.
+
+### Admin
+
+Admin features:
+
+- List weekly plans.
+- Create weekly plan.
+- Duplicate year/week creation is handled in frontend by navigating to the existing plan instead of POSTing.
+- Edit plan details and meals.
+- Save only in the detail editor.
+- Publish from the list.
+- Delete from the list.
+- Past weeks are locked:
+  - can view
+  - cannot edit
+  - cannot publish
+  - cannot delete
+
+Past-week locking is based on the real current ISO week, not the Sunday-display rule.
+
+### Display
+
+Display is designed primarily for portrait pad use.
+
+Display features:
+
+- Blackboard-style visual design.
+- Long Cang font from Google Fonts.
+- 2 columns x 4 rows on the recorded pad viewport:
+  - 7 day cards
+  - 1 info card
+- No vertical scroll on `712 x 1000` portrait viewport.
+- Local display drag-swap only on display, not admin.
+- Long-press drag:
+  - mouse: 280 ms
+  - touch: 760 ms
+- Drag preview follows pointer centered.
+- Local display changes can differ from admin data.
+- If display differs from admin/server:
+  - show controls only then
+  - `保存到管理端`: upload display changes to admin, then publish
+  - `放弃调整`: discard local display changes and restore server data
+- Display has an online/offline card.
+- Online/offline card also shows battery percentage:
+  - WebView shell provides battery level and charging state through `window.FoodMenuPad.getDeviceStatus()`.
+  - Browser fallback uses `navigator.getBattery()` when available.
+  - Do not show power-save mode status; HyperOS did not expose it reliably on the user's Xiaomi Pad 5.
+- Refresh interval is `REFRESH_INTERVAL_SECONDS = 45`.
+- Online card has an icon-only refresh button.
+- Refresh button is disabled while offline.
+- Local date/today highlight updates every minute, even when server is offline.
+- The old in-page fullscreen button was removed from display surfaces.
+- The Android shell still uses immersive/fullscreen window flags.
+
+### Android Pad Shell
+
+An Android shell app lives in `android-shell/`.
+
+Current shell behavior:
+
+- Package/application id: `com.foodmenu.pad`.
+- Version as of this handoff: `0.4.0` / `versionCode 4`.
+- Default display URL: `http://192.168.81.1:5173/display`.
+- Intended device: Xiaomi Pad 5 on HyperOS.
+- Orientation: portrait.
+- Uses WebView to open the FoodMenu display page.
+- Keeps screen on and uses immersive fullscreen system UI flags.
+- Long-press in the shell opens the display URL editor.
+- Boot receiver tries to open the shell at boot and also posts a notification fallback.
+- Shell bridges battery percentage and charging state to the webpage.
+- Power-save mode detection/reminders were removed because HyperOS did not expose the state reliably to normal apps.
+
+Build/install notes:
+
+- The user prefers to build APKs manually in Android Studio.
+- Open `D:\Projects\FoodMenu\android-shell` in Android Studio and use `Build APK(s)`.
+- APK output is typically `android-shell/app/build/outputs/apk/debug/app-debug.apk`.
+- `android-shell/local.properties`, `.idea`, `.gradle`, and `app/build` are intentionally ignored.
+
+### Emoji Background Stickers
+
+Display online mode detects food keywords from the whole weekly menu and renders random emoji stickers in the blackboard background.
+
+Rules live in `FOOD_EMOJI_RULES` in `client/src/main.jsx`.
+
+Current important mappings:
+
+As of 2026-08-04, the mapping was expanded to broadly cover Unicode Food & Drink emojis and nearby food-useful symbols. The full source of truth is `FOOD_EMOJI_RULES` in `client/src/main.jsx`; do not rely on the short list below as exhaustive.
+
+- 鸡腿/凤爪/鸡 -> 🍗
+- 牛肉/牛肋条 -> 🥩
+- 卤肉/肉酱/肉 -> 🥓
+- 蘑菇 -> 🍄
+- 酸菜/生菜/白菜/娃娃菜/西兰花 -> 🥬
+- 芝士 -> 🧀
+- 面包 -> 🍞
+- 汉堡 -> 🍔
+- 饭 -> 🍚
+- 面/汤 -> 🍜
+- 意大利/肉酱面 -> 🍝
+- 麻辣/辣 -> 🌶️
+- 馄饨/饺子/包子 -> 🥟
+- 豆腐/豆 -> 🫘
+- 三文鱼/鱼 -> 🐟
+
+Sticker behavior:
+
+- Only shown while online.
+- Opaque, not transparent.
+- Random rotation is large: about +/- 42 degrees.
+- Positions are distributed across a 4-column grid with jitter, to avoid clustering on the left.
+- Pad CSS limits sticker size to roughly `32-58px`.
+
+### Display Week Rule
+
+This is a special business rule:
+
+- Monday through Saturday: display the current ISO week.
+- Sunday: display next ISO week early.
+
+Example:
+
+- On the Sunday before Week32, the display should show Week32 for Monday-Saturday, while Sunday meals come from Week31.
+
+Backend behavior:
+
+- `getDisplayWeek()` implements the Sunday-next-week rule.
+- `/api/current-plan` should prefer the plan for the display week.
+- If the display-week plan exists but is draft/unpublished, the server should auto-publish it.
+- When showing a next week plan, Sunday entries should be copied from the previous week's Sunday if that previous plan exists.
+- Returned display plan includes metadata:
+  - `displayWeek`
+  - `previousSundayWeek`
+  - `isDisplayWeekMismatch`
+
+Frontend behavior:
+
+- It computes the same display week locally.
+- If the displayed plan's `year/weekNumber` differs from the local display week, the week chip becomes red and shows `AlertTriangle`.
+- This warning helps detect stale or mismatched server data.
+
+## Known Data Notes
+
+The local database has real user data, not just seed data.
+
+Observed around 2026-08-04:
+
+- Week31 exists and is published.
+- Week32 exists and is published.
+- Week30 exists and is locked/past.
+
+Do not wipe `data/foodmenu.sqlite` unless the user explicitly asks.
+
+## Known Pitfalls
+
+### Code Was Lost Before
+
+After many changes, only commit `6ba668a` remained and later UI reverted. The work was restored and committed as:
+
+```text
+d6d9ff2 Restore display and weekly planning features
+```
+
+If features appear missing again, first check:
+
+```powershell
+git -c safe.directory=D:/Projects/FoodMenu log --oneline -5
+git -c safe.directory=D:/Projects/FoodMenu status --short --branch
+```
+
+The restored feature commit should be present.
+
+### Server Still Old After Code Changes
+
+After editing server code, restart `npm run dev`. Otherwise the running `3000` process may still serve old logic.
+
+### Frontend Page Can Load Without Server
+
+`localhost:5173/admin` or `/display` can still load if the frontend is running and backend is stopped. API actions such as create/save/publish will fail until port `3000` is running.
+
+### Encoding/Mojibake
+
+Some older files and previous terminal outputs showed mojibake Chinese. New code should be saved as UTF-8 and use real Chinese strings where user-facing text exists.
+
+## Testing Before Final Responses
+
+For code changes, run:
+
+```powershell
+npm run build
+npm run test
+```
+
+If changing backend display-week behavior, make sure `server/test/db.test.js` still covers:
+
+- 21 entries per plan
+- create/update/publish/current version
+- display-week draft auto-publish
+- delete unlocked plan
+- locked past-week plan behavior
+
+## Git Instructions For This Repo
+
+Current branch convention uses `codex/`.
+
+After meaningful changes:
+
+```powershell
+git -c safe.directory=D:/Projects/FoodMenu status --short
+git -c safe.directory=D:/Projects/FoodMenu add <files>
+git -c safe.directory=D:/Projects/FoodMenu commit -m "<message>"
+```
+
+The user explicitly wanted a commit after restoring context/features, so future substantial restores/fixes should usually be committed when verified.

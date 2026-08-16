@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FoodMenu Pad</string>
+    <string name="loading_display">正在打开展示页：\n%1$s\n\n如果一直停在这里，请点“修改地址”。\n开发模式通常是 http://电脑IP:5173/display；生产模式通常是 http://电脑IP:3000/display。</string>
+    <string name="load_error">无法打开展示页：\n%1$s\n\n诊断信息：\n%2$s\n\n请确认电脑端 server 正在运行、Pad 和电脑在同一个 Wi-Fi。开发模式用 5173 端口，生产模式用 3000 端口。</string>
+    <string name="load_timeout">10 秒内没有收到页面响应：%1$s</string>
+    <string name="http_error">HTTP %1$d：%2$s</string>
+    <string name="webview_error">WebView 错误 %1$d：%2$s\n%3$s</string>
+    <string name="url_dialog_title">展示页地址</string>
+    <string name="url_dialog_message">长按屏幕可以随时修改。你现在选择一直用 npm run dev，所以推荐使用 http://电脑IP:5173/display。</string>
+    <string name="edit_url">修改地址</string>
+    <string name="reload_page">重载</string>
+    <string name="save_and_reload">保存并重载</string>
+    <string name="use_default_url">使用默认地址</string>
+    <string name="url_saved">地址已保存：%1$s</string>
+    <string name="url_save_failed">地址保存失败，请重试。</string>
+    <string name="url_invalid">地址需要以 http:// 或 https:// 开头</string>
+</resources>

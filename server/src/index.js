@@ -1,0 +1,134 @@
+import express from "express";
+import cors from "cors";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import {
+  createWeekPlan,
+  deleteWeekPlan,
+  getCurrentPlan,
+  getCurrentPlanVersion,
+  getWeekPlan,
+  initializeDatabase,
+  listWeekPlans,
+  publishWeekPlan,
+  updateWeekPlan
+} from "./db.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, "../..");
+const clientDist = path.join(rootDir, "client", "dist");
+
+const app = express();
+const port = Number(process.env.PORT || 3000);
+
+initializeDatabase();
+
+app.use(cors());
+app.use(express.json({ limit: "1mb" }));
+
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, service: "food-menu", timestamp: new Date().toISOString() });
+});
+
+app.get("/api/week-plans", (_req, res) => {
+  res.json({ plans: listWeekPlans() });
+});
+
+app.post("/api/week-plans", (req, res) => {
+  try {
+    const year = Number(req.body.year);
+    const weekNumber = Number(req.body.weekNumber);
+    const title = String(req.body.title || `Week${weekNumber}`);
+
+    if (!Number.isInteger(year) || !Number.isInteger(weekNumber)) {
+      return res.status(400).json({ error: "year and weekNumber are required integers" });
+    }
+
+    const plan = createWeekPlan({ year, weekNumber, title });
+    res.status(201).json({ plan });
+  } catch (error) {
+    console.error("Failed to create week plan", error);
+    if (String(error.message).includes("UNIQUE")) {
+      return res
+        .status(409)
+        .json({ error: "这一周计划已经存在，请直接编辑已有计划或换一个周数。" });
+    }
+    res.status(500).json({ error: "新建周计划失败，请查看 server 日志。" });
+  }
+});
+
+app.get("/api/week-plans/:id", (req, res) => {
+  const plan = getWeekPlan(Number(req.params.id));
+  if (!plan) return res.status(404).json({ error: "Week plan not found" });
+  res.json({ plan });
+});
+
+app.put("/api/week-plans/:id", (req, res) => {
+  try {
+    const plan = updateWeekPlan(Number(req.params.id), req.body);
+    if (!plan) return res.status(404).json({ error: "Week plan not found" });
+    res.json({ plan });
+  } catch (error) {
+    console.error("Failed to update week plan", error);
+    if (String(error.message).includes("PAST_WEEK_LOCKED")) {
+      return res.status(403).json({ error: "过去周计划只能查看，不能编辑。" });
+    }
+    if (String(error.message).includes("UNIQUE")) {
+      return res.status(409).json({ error: "这一年和周数已经被其他计划使用。" });
+    }
+    res.status(400).json({ error: "保存周计划失败，请检查年份、周数和餐食内容。" });
+  }
+});
+
+app.post("/api/week-plans/:id/publish", (req, res) => {
+  try {
+    const plan = publishWeekPlan(Number(req.params.id));
+    if (!plan) return res.status(404).json({ error: "Week plan not found" });
+    res.json({ plan });
+  } catch (error) {
+    console.error("Failed to publish week plan", error);
+    if (String(error.message).includes("PAST_WEEK_LOCKED")) {
+      return res.status(403).json({ error: "过去周计划只能查看，不能发布。" });
+    }
+    res.status(500).json({ error: "发布周计划失败，请查看 server 日志。" });
+  }
+});
+
+app.delete("/api/week-plans/:id", (req, res) => {
+  try {
+    const plan = deleteWeekPlan(Number(req.params.id));
+    if (!plan) return res.status(404).json({ error: "Week plan not found" });
+    res.json({ plan });
+  } catch (error) {
+    console.error("Failed to delete week plan", error);
+    if (String(error.message).includes("PAST_WEEK_LOCKED")) {
+      return res.status(403).json({ error: "过去周计划只能查看，不能删除。" });
+    }
+    res.status(500).json({ error: "删除周计划失败，请查看 server 日志。" });
+  }
+});
+
+app.get("/api/current-plan", (_req, res) => {
+  const plan = getCurrentPlan();
+  if (!plan) return res.status(404).json({ error: "No published plan" });
+  res.json({ plan });
+});
+
+app.get("/api/current-plan/version", (_req, res) => {
+  const version = getCurrentPlanVersion();
+  if (!version) return res.status(404).json({ error: "No published plan" });
+  res.json(version);
+});
+
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+}
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`FoodMenu API listening on http://localhost:${port}`);
+});

@@ -1,0 +1,16 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.foodmenu.pad"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.foodmenu.pad"
+        minSdk 23
+        targetSdk 35
+        versionCode 4
+        versionName "0.4.0"
+    }
+}
