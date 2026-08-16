@@ -23,6 +23,8 @@ npm run dev
 
 小米 Pad 在同一局域网内访问时，把 `localhost` 换成运行 server 的电脑局域网 IP。
 
+更多启动、生产模式和树莓派 microSD 过渡期每周备份说明见 [`startup.md`](startup.md)。
+
 ## 第一阶段范围
 
 - 创建、编辑、保存草稿、发布每周餐食计划。

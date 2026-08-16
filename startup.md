@@ -97,3 +97,19 @@ http://localhost:3000/display
 ```
 
 生产模式下，前端页面由 Express server 提供，不再使用 `5173` 端口。
+
+## 8. 树莓派 microSD 过渡期备份
+
+如果临时用 microSD 跑树莓派，等待 SSD 到货期间不需要每天备份。当前项目的重要数据主要是 SQLite 数据库：
+
+```text
+data/foodmenu.sqlite
+```
+
+建议每周备份一次，或者在修改了很多菜单后手动备份一次。备份时把 `foodmenu.sqlite` 复制到电脑、移动硬盘或 NAS，并按日期重命名，例如：
+
+```text
+foodmenu-2026-08-16.sqlite
+```
+
+SSD 到货后，再把最新的 `foodmenu.sqlite` 迁移到 SSD 上的项目 `data/` 目录即可。
